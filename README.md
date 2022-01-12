@@ -1,3 +1,4 @@
+--// Current source all of it was made by Vault
 local GetService = setmetatable({}, {
     __index = function(self, key)
         return game:GetService(key)
@@ -15,6 +16,7 @@ local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local CurrentCamera = workspace.CurrentCamera
 local UserInputService = GetService.UserInputService
+local Unpack = table.unpack
 local GuiInset = GetService.GuiService:GetGuiInset()
 local AimbotFOV = Drawing.new("Circle")
 AimbotFOV.Thickness = 1
@@ -347,7 +349,23 @@ local PuppywareSettings = {
             Hitboxes = {"Head"},
             Target = nil
         },
-        AimingSettings = {
+        AimbotSettings = {
+            AimAssistType = "Camera",
+            MovementPrediction = false,
+            MovementPredictionAmount = 0.165 * 1,
+            SmoothingTracing = false,
+            SmoothingTracingAmount = 5
+        },
+        SilentAimSettings = {
+            MovementPrediction = false,
+            MovementPredictionAmount = 0.165 * 1,
+            HitChance = false,
+            HitChanceAmount = {
+                HitPercent = 100,
+                NotHitPercent = 0
+            }
+        },
+        TargetAimSettings = {
             MovementPrediction = false,
             MovementPredictionAmount = 0.165 * 1,
             HitChance = false,
@@ -355,15 +373,6 @@ local PuppywareSettings = {
                 HitPercent = 100,
                 NotHitPercent = 0
             },
-            AimAssistType = "Camera",
-            MovementPrediction = false,
-            MovementPredictionAmount = 0.165 * 1,
-            SmoothingTracing = false,
-            SmoothingTracingAmount = 5,
-            PingBasedPrediction = false,
-            GetVelocity = 0.165
-        },
-        TargetAimSettings = {
             UnlockTargetKnocked = false,
             NotificationAlert = false,
         },
@@ -724,41 +733,49 @@ TValue:AddSlider(1, 0, 60, 1, function(Value)
     PuppywareSettings.Aiming.TriggerBot.DelayAmount = Value
 end)
 
--- Aiming Settings Section --
+-- Aimbot Settings Section --
 
-local AimingSettings = AimingTab:CreateSector("Aiming Settings", "right")
+local AimbotSettings = AimingTab:CreateSector("Aimbot Settings", "right")
 
-AimingSettings:AddToggle('Ping Based Prediction', false, function(Boolean)
-    PuppywareSettings.Aiming.AimingSettings.PingBasedPrediction = Boolean
+AimbotSettings:AddDropdown('Aim Assist Type', {"Camera", "Mouse"}, "Camera", false, function(Option)
+    PuppywareSettings.Aiming.AimbotSettings.AimAssistType = Option
 end)
 
-AimingSettings:AddDropdown('Aim Assist Type', {"Camera", "Mouse"}, "Camera", false, function(Option)
-    PuppywareSettings.Aiming.AimingSettings.AimAssistType = Option
+local MovementPredToggle = AimbotSettings:AddToggle('Movement Prediction', false, function(Boolean)
+    PuppywareSettings.Aiming.AimbotSettings.MovementPrediction = Boolean
 end)
 
-local SmoothingTracing = AimingSettings:AddToggle('Smoothing Tracing', false, function(Boolean)
-    PuppywareSettings.Aiming.AimingSettings.SmoothingTracing = Boolean
+MovementPredToggle:AddSlider(1, 1, 5, 1, function(Value)
+    PuppywareSettings.Aiming.AimbotSettings.MovementPredictionAmount = 0.165 * tonumber("1." ..Value)
+end)
+
+local SmoothingTracing = AimbotSettings:AddToggle('Smoothing Tracing', false, function(Boolean)
+    PuppywareSettings.Aiming.AimbotSettings.SmoothingTracing = Boolean
 end)
 
 SmoothingTracing:AddSlider(2, 5, 10, 1, function(Value)
-    PuppywareSettings.Aiming.AimingSettings.SmoothingTracingAmount = Value
+    PuppywareSettings.Aiming.AimbotSettings.SmoothingTracingAmount = Value
 end)
 
-local MovementPredToggle2 = AimingSettings:AddToggle('Custom Prediction', false, function(Boolean)
-    PuppywareSettings.Aiming.AimingSettings.MovementPrediction = Boolean
+-- Silent Aim Settings Section --
+
+local SilentAimSettings = AimingTab:CreateSector("Silent Aim Settings", "right")
+
+local MovementPredToggle2 = SilentAimSettings:AddToggle('Movement Prediction', false, function(Boolean)
+    PuppywareSettings.Aiming.SilentAimSettings.MovementPrediction = Boolean
 end)
 
 MovementPredToggle2:AddSlider(1, 1, 5, 1, function(Value)
-    PuppywareSettings.Aiming.AimingSettings.MovementPredictionAmount = 0.165 * tonumber("1." ..Value)
+    PuppywareSettings.Aiming.SilentAimSettings.MovementPredictionAmount = 0.165 * tonumber("1." ..Value)
 end)
 
-local HitChanceToggle2 = AimingSettings:AddToggle('Hit Chance', false, function(Boolean)
-    PuppywareSettings.Aiming.AimingSettings.HitChance = Boolean
+local HitChanceToggle2 = SilentAimSettings:AddToggle('Hit Chance', false, function(Boolean)
+    PuppywareSettings.Aiming.SilentAimSettings.HitChance = Boolean
 end)
 
 HitChanceToggle2:AddSlider(0, 100, 100, 1, function(Value)
-    PuppywareSettings.Aiming.AimingSettings.HitChanceAmount.HitPercent = tonumber(Value)
-    PuppywareSettings.Aiming.AimingSettings.HitChanceAmount.NotHitPercent = tonumber(100 - PuppywareSettings.Aiming.AimingSettings.HitChanceAmount.HitPercent)
+    PuppywareSettings.Aiming.SilentAimSettings.HitChanceAmount.HitPercent = tonumber(Value)
+    PuppywareSettings.Aiming.SilentAimSettings.HitChanceAmount.NotHitPercent = tonumber(100 - PuppywareSettings.Aiming.SilentAimSettings.HitChanceAmount.HitPercent)
 end)
 
 -- Target Aim Settings Section --
@@ -774,7 +791,7 @@ end, function()
             PuppywareSettings.Aiming.TargetAim.Target = NearestTarget.Name
             if PuppywareSettings.Aiming.TargetAimSettings.NotificationAlert then
                 Notify({
-                    Title = "Puppyware 😳",
+                    Title = "Puppyware ðŸ˜³",
                     Description = "Target: " .. NearestTarget.Name,
                     Duration = 3
                 })
@@ -789,6 +806,23 @@ end)
 
 TargetAimSettings:AddToggle('Notification Alert', false, function(State)
     PuppywareSettings.Aiming.TargetAimSettings.NotificationAlert = State
+end)
+
+local MovementPredToggle3 = TargetAimSettings:AddToggle('Movement Prediction', false, function(State)
+    PuppywareSettings.Aiming.TargetAimSettings.MovementPrediction = State
+end)
+
+MovementPredToggle3:AddSlider(1, 1, 5, 1, function(Value)
+    PuppywareSettings.Aiming.TargetAimSettings.MovementPredictionAmount = 0.165 * tonumber("1." ..Value)
+end)
+
+local HitChanceToggle3 = TargetAimSettings:AddToggle('Hit Chance', false, function(State)
+    PuppywareSettings.Aiming.TargetAimSettings.HitChance = State
+end)
+
+HitChanceToggle3:AddSlider(0, 100, 100, 1, function(Value)
+    PuppywareSettings.Aiming.TargetAimSettings.HitChanceAmount.HitPercent = tonumber(Value)
+    PuppywareSettings.Aiming.TargetAimSettings.HitChanceAmount.NotHitPercent = tonumber(100 - PuppywareSettings.Aiming.TargetAimSettings.HitChanceAmount.HitPercent)
 end)
 
 local WhitelistSection = AimingTab:CreateSector("Whitelist", "right")
@@ -1060,33 +1094,14 @@ BlatantAntiAimSector:AddToggle('No Auto Rotate', false, function(State)
     PuppywareSettings.Blatant.BlatantAA.NoAutoRotate = State
 end)
 
-local UndergroundWallBangToggle = BlatantAntiAimSector:AddToggle('Underground Wallbang', false, function(State)
-    pcall(function()
-        if State then
-			wait(0.5)
-			Float = Instance.new("BodyVelocity")
-			Float.Parent = LocalPlayer.Character.HumanoidRootPart
-			Float.MaxForce = Vector3.new(100000, 100000, 100000)
-			Float.Velocity = Vector3.new(0, 0, 0)
-			wait(0.25)
-			LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, -9.5, 0)
-			Cham(LocalPlayer, true)
-			PuppywareSettings.Blatant.BlatantAA.UndergroundWallbang = true
-            SpeedToggle:Set(true)
-		else
-			LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 9.5, 0)
-			Cham(LocalPlayer, false)
-			Float:Destroy()
-			PuppywareSettings.Blatant.BlatantAA.UndergroundWallbang = false
-            SpeedToggle:Set(false)
-		end
-    end)
+local UndergroundWallBangToggle = BlatantAntiAimSector:AddToggle('Shit bans you so removed', false, function(State)
+   
 end)
 
-UndergroundWallBangToggle:AddKeybind()
 
-BlatantAntiAimSector:AddToggle('Underground', false, function(State)
-    PuppywareSettings.Blatant.BlatantAA.Underground = State
+
+BlatantAntiAimSector:AddToggle('Shit bans you so removed', false, function(State)
+    print("bans you so removed")
 end)
 
 BlatantAntiAimSector:AddDropdown("Anti Aim Type", {"Jitter", "Spin"}, "Jitter", false, function(Value)
@@ -1646,15 +1661,7 @@ end)
 
 local SettingsTab = Window:CreateTab("Settings")
 
-if syn then
-    SettingsTab:CreateConfigSystem("left")
-else
-    Notify({
-        Title = "Puppyware",
-        Description = "Your Executor Doesn't Support Config.",
-        Duration = 3
-    })
-end
+SettingsTab:CreateConfigSystem("left")
 
 -- Init --
 
@@ -1672,7 +1679,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(_Player)
     if _Player ~= LocalPlayer and _Player:IsFriendsWith(LocalPlayer.UserId) then
-        Remove(PuppywareSettings.Aiming.Whitelist.Friends, _Player.Name)
+        Module.Functions.TableRemove(PuppywareSettings.Aiming.Whitelist.Friends, _Player.Name)
     end
 end)
 
@@ -1928,10 +1935,6 @@ function Remove(Data, Data2)
     end
 end
 
-function IsVisible(GetPosition, IgnoreLists)
-    return #CurrentCamera:GetPartsObscuringTarget({game.Players.LocalPlayer.Character.Head.Position, GetPosition}, IgnoreLists) == 0 and true or false
-end
-
 function GodFunction(Variable)
     LocalPlayer.Character.RagdollConstraints:Destroy()
     local Folder = Instance.new("Folder", LocalPlayer.Character)
@@ -2157,20 +2160,6 @@ end)
 
 RunService.RenderStepped:Connect(function()
     if Alive(LocalPlayer) then
-        if PuppywareSettings.Aiming.AimingSettings.PingBasedPrediction then
-            local PingStats = GetService.Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
-            local Value = tostring(PingStats)
-            local PingValue = Value:split(" ")
-            local PingNumber = tonumber(PingValue[1])
-    
-            if PingNumber < 130 then
-                PuppywareSettings.Aiming.AimingSettings.GetVelocity = PingNumber / 1000 + 0.037
-            else
-                PuppywareSettings.Aiming.AimingSettings.GetVelocity = PingNumber / 1000 + 0.033
-            end
-        else
-            PuppywareSettings.Aiming.AimingSettings.GetVelocity = 0.165
-        end
         if PuppywareSettings.Blatant.Cash.AutoDrop then
             ReplicatedStorage.MainEvent:FireServer("DropMoney", tostring(PuppywareSettings.Blatant.Cash.AutoDropAmount))
         end
@@ -2207,26 +2196,26 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         end
-        if PuppywareSettings.Blatant.Reaching.FistReach and LocalPlayer.Character.LeftHand.Transparency ~= 1 then
+        if PuppywareSettings.Blatant.Reaching.FistReach and LocalPlayer.Character.LeftHand.Transparency ~= 0.5 then
             LocalPlayer.Character.LeftHand.Size = Vector3.new(45, 45, 45)
             LocalPlayer.Character.RightHand.Size = Vector3.new(45, 45, 45)
             LocalPlayer.Character.RightHand.Massless = true
             LocalPlayer.Character.LeftHand.Massless = true
-            LocalPlayer.Character.RightHand.Transparency = 1
-            LocalPlayer.Character.LeftHand.Transparency = 1
+            LocalPlayer.Character.RightHand.Transparency = 0.5
+            LocalPlayer.Character.LeftHand.Transparency = 0.5
         end
         if PuppywareSettings.Blatant.Reaching.MeleeReach then
             local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
             if Tool ~= nil and not Tool:FindFirstChild("Ammo") and TableLowerFind(PuppywareModule.Teleport.Melee, Tool.Name) ~= nil and Tool:FindFirstChild("Handle") then
-                if Tool.Handle.Transparency ~= 1 then
-                    Tool.Handle.Size = Vector3.new(45, 45, 45)
-                    Tool.Handle.Transparency = 1
+                if Tool.Handle.Transparency ~= 0.5 then
+                    Tool.Handle.Size = Vector3.new(100, 100, 100)
+                    Tool.Handle.Transparency = 0.5
                 end
             end
         else
             local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
             if Tool ~= nil and not Tool:FindFirstChild("Ammo") and TableLowerFind(PuppywareModule.Teleport.Melee, Tool.Name) ~= nil and Tool:FindFirstChild("Handle") then
-                if Tool.Handle.Transparency == 1 then
+                if Tool.Handle.Transparency == 0.5 then
                     if Tool.Name == "knife" then
                         Tool.Handle.Size = Vector3.new(2.19574, 0.449288, 0.102495)
                     end
@@ -2308,17 +2297,17 @@ RunService.RenderStepped:Connect(function()
             AimbotFOV.Visible = false
         end
         if PuppywareSettings.Aiming.Aimbot.AimAssist and PuppywareSettings.Aiming.Aimbot.IsAiming then
-            local NearestTarget, NearestDistance = NearestType(PuppywareSettings.Aiming.Aimbot.UseNearestDistance and "Distance" or "Mouse")
+            local NearestTarget, NearestDistance = NearestType(Unpack({PuppywareSettings.Aiming.Aimbot.UseNearestDistance and "Distance" or "Mouse"}))
 
             if NearestTarget and (not PuppywareSettings.Aiming.Aimbot.GrabbedCheck or not Grabbing(NearestTarget)) and (not PuppywareSettings.Aiming.Aimbot.KnockedOutCheck or not Knocked(NearestTarget)) and (not PuppywareSettings.Aiming.Aimbot.ShowFOV or PuppywareSettings.Aiming.FOV.AimAssistSize > NearestDistance) and (not PuppywareSettings.Aiming.Aimbot.WallCheck or Visible(NearestTarget.Character.HumanoidRootPart, LocalPlayer.Character.HumanoidRootPart)) then
-                local TargetPart = (NearestTarget.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and NearestTarget.Character.LeftFoot or NearestTarget.Character[RandomTable(PuppywareSettings.Aiming.Aimbot.Hitboxes)])
-                local Prediction = (PuppywareSettings.Aiming.TargetAimSettings.MovementPrediction and TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.TargetAimSettings.MovementPredictionAmount) or TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.AimingSettings.GetVelocity))
+                local TargetPart = Unpack({NearestTarget.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and NearestTarget.Character.LeftFoot or NearestTarget.Character[RandomTable(PuppywareSettings.Aiming.Aimbot.Hitboxes)]})
+                local Prediction = Unpack({PuppywareSettings.Aiming.AimbotSettings.MovementPrediction and TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.AimbotSettings.MovementPredictionAmount) or TargetPart.CFrame})
                 
                 if PuppywareSettings.Aiming.AimbotSettings.AimAssistType == "Mouse" then
                     local NearestPosition, NearestVisible = CurrentCamera:WorldToScreenPoint(Prediction.Position)
                     local MouseLocation = CurrentCamera:WorldToScreenPoint(Mouse.Hit.Position)
-                    local EndPosition = (PuppywareSettings.Aiming.AimbotSettings.SmoothingTracing and Vector2.new((NearestPosition.X - MouseLocation.X) / PuppywareSettings.Aiming.AimbotSettings.SmoothingTracingAmount, (NearestPosition.Y - MouseLocation.Y) / PuppywareSettings.Aiming.AimbotSettings.SmoothingTracingAmount) or Vector2.new((NearestPosition.X - MouseLocation.X) / 1.4, (NearestPosition.Y - MouseLocation.Y) / 1.4))
-                    
+                    local EndPosition = Unpack({PuppywareSettings.Aiming.AimbotSettings.SmoothingTracing and Vector2.new((NearestPosition.X - MouseLocation.X) / PuppywareSettings.Aiming.AimbotSettings.SmoothingTracingAmount, (NearestPosition.Y - MouseLocation.Y) / PuppywareSettings.Aiming.AimbotSettings.SmoothingTracingAmount) or Vector2.new((NearestPosition.X - MouseLocation.X) / 1.4, (NearestPosition.Y - MouseLocation.Y) / 1.4)})
+
                     if NearestVisible then
                         mousemoverel(EndPosition.X, EndPosition.Y)
                     end
@@ -2388,21 +2377,21 @@ local __index -- <3
 __index = hookmetamethod(game, "__index", function(self, key)
     if self == Mouse and (tostring(key) == "Hit" or tostring(key) == "Target") then
         if PuppywareSettings.Aiming.TargetAim.Enabled then
-            if PuppywareSettings.Aiming.TargetAim.Target ~= nil and ChanceTable(PuppywareSettings.Aiming.AimingSettings.HitChanceAmount) == "HitPercent" then
+            if PuppywareSettings.Aiming.TargetAim.Target ~= nil and ChanceTable(PuppywareSettings.Aiming.TargetAimSettings.HitChanceAmount) == "HitPercent" then
                 if Players:FindFirstChild(PuppywareSettings.Aiming.TargetAim.Target) ~= nil and (not PuppywareSettings.Aiming.TargetAim.GrabbedCheck or not Grabbing(Players[PuppywareSettings.Aiming.TargetAim.Target])) and (not PuppywareSettings.Aiming.TargetAim.KnockedOutCheck or not Knocked(Players[PuppywareSettings.Aiming.TargetAim.Target])) and (not PuppywareSettings.Aiming.TargetAim.ShowFOV or PuppywareSettings.Aiming.FOV.TargetAimSize > (LocalPlayer.Character.Head.Position - Players[PuppywareSettings.Aiming.TargetAim.Target].Character.Head.Position).Magnitude) and (not PuppywareSettings.Aiming.TargetAim.WallCheck or Visible(Players[PuppywareSettings.Aiming.TargetAim.Target].Character.HumanoidRootPart, LocalPlayer.Character.HumanoidRootPart)) then
-                    local TargetPart = (Players[PuppywareSettings.Aiming.TargetAim.Target].Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and Players[PuppywareSettings.Aiming.TargetAim.Target].Character.LeftFoot or Players[PuppywareSettings.Aiming.TargetAim.Target].Character[RandomTable(PuppywareSettings.Aiming.TargetAim.Hitboxes)])
-                    local Prediction = (PuppywareSettings.Aiming.TargetAimSettings.MovementPrediction and TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.TargetAimSettings.MovementPredictionAmount) or TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.AimingSettings.GetVelocity))
+                    local TargetPart = Unpack({Players[PuppywareSettings.Aiming.TargetAim.Target].Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and Players[PuppywareSettings.Aiming.TargetAim.Target].Character.LeftFoot or Players[PuppywareSettings.Aiming.TargetAim.Target].Character[RandomTable(PuppywareSettings.Aiming.TargetAim.Hitboxes)]})
+                    local Prediction = Unpack({PuppywareSettings.Aiming.TargetAimSettings.MovementPrediction and TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.TargetAimSettings.MovementPredictionAmount) or TargetPart.CFrame})
 
                     return (tostring(key) == "Hit" and Prediction or tostring(key) == "Target" and TargetPart)
                 end
             end
         else    
-            if PuppywareSettings.Aiming.SilentAim.Enabled and ChanceTable(PuppywareSettings.Aiming.AimingSettings.HitChanceAmount) == "HitPercent" then
-                local NearestTarget, NearestDistance = NearestType(PuppywareSettings.Aiming.SilentAim.UseNearestDistance and "Distance" or "Mouse")
+            if PuppywareSettings.Aiming.SilentAim.Enabled and ChanceTable(PuppywareSettings.Aiming.SilentAimSettings.HitChanceAmount) == "HitPercent" then
+                local NearestTarget, NearestDistance = NearestType(Unpack({PuppywareSettings.Aiming.SilentAim.UseNearestDistance and "Distance" or "Mouse"}))
     
-                if NearestTarget and (not PuppywareSettings.Aiming.SilentAim.GrabbedCheck or not Grabbing(NearestTarget)) and (not PuppywareSettings.Aiming.SilentAim.KnockedOutCheck or not Knocked(NearestTarget)) and (not PuppywareSettings.Aiming.SilentAim.ShowFOV or PuppywareSettings.Aiming.FOV.SilentAimSize > NearestDistance) and (not PuppywareSettings.Aiming.SilentAim.WallCheck or IsVisible(NearestTarget.Character.Head.Position, {NearestTarget.Character, LocalPlayer.Character, CurrentCamera}) == true) then
-                    local TargetPart = (NearestTarget.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and NearestTarget.Character.LeftFoot or NearestTarget.Character[RandomTable(PuppywareSettings.Aiming.SilentAim.Hitboxes)])
-                    local Prediction = (PuppywareSettings.Aiming.TargetAimSettings.MovementPrediction and TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.TargetAimSettings.MovementPredictionAmount) or TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.AimingSettings.GetVelocity))
+                if NearestTarget and (not PuppywareSettings.Aiming.SilentAim.GrabbedCheck or not Grabbing(NearestTarget)) and (not PuppywareSettings.Aiming.SilentAim.KnockedOutCheck or not Knocked(NearestTarget)) and (not PuppywareSettings.Aiming.SilentAim.ShowFOV or PuppywareSettings.Aiming.FOV.SilentAimSize > NearestDistance) and (not PuppywareSettings.Aiming.SilentAim.WallCheck or Visible(NearestTarget.Character.HumanoidRootPart, LocalPlayer.Character.HumanoidRootPart)) then
+                    local TargetPart = Unpack({NearestTarget.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and NearestTarget.Character.LeftFoot or NearestTarget.Character[RandomTable(PuppywareSettings.Aiming.SilentAim.Hitboxes)]})
+                    local Prediction = Unpack({PuppywareSettings.Aiming.SilentAimSettings.MovementPrediction and TargetPart.CFrame + (TargetPart.Velocity * PuppywareSettings.Aiming.SilentAimSettings.MovementPredictionAmount) or TargetPart.CFrame})
     
                     return (tostring(key) == "Hit" and Prediction or tostring(key) == "Target" and TargetPart)
                 end
